@@ -11,6 +11,7 @@ using ManagedShell.AppBar;
 using System.Windows.Forms;
 using ManagedShell.WindowsTray;
 using System.Runtime.CompilerServices;
+using System.IO;
 
 namespace RetroBar
 {
@@ -26,6 +27,8 @@ namespace RetroBar
         private readonly double _dpiScale;
         private readonly NotificationArea _notificationArea;
         private readonly AppBarScreen _screen;
+
+        private FileSystemWatcher _themesWatcher;
 
         public event PropertyChangedEventHandler PropertyChanged;
 
@@ -194,6 +197,71 @@ namespace RetroBar
             {
                 cboThemeSelect.Items.Add(theme);
             }
+            try
+            {
+                string path = _dictionaryManager.GetThemeInstallDir();
+                Directory.CreateDirectory(path);
+
+                _themesWatcher = new FileSystemWatcher(_dictionaryManager.GetThemeInstallDir());
+                _themesWatcher.Created += ThemesWatcher_Created;
+                _themesWatcher.Deleted += ThemesWatcher_Deleted;
+                _themesWatcher.Renamed += ThemesWatcher_Renamed;
+                _themesWatcher.Filter = "*.xaml";
+                _themesWatcher.EnableRaisingEvents = true;
+            }
+            catch (Exception e)
+            {
+                ShellLogger.Warning($"Unable to watch custom themes directory: {e}");
+            }
+        }
+
+        private void ThemesWatcher_Created(object sender, FileSystemEventArgs e)
+        {
+            string newTheme = Path.GetFileNameWithoutExtension(e.FullPath);
+            Dispatcher.BeginInvoke(() => 
+            {
+                if (!cboThemeSelect.Items.Contains(newTheme))
+                {
+                    cboThemeSelect.Items.Add(newTheme);
+                }
+            });
+        }
+
+        private void ThemesWatcher_Deleted(object sender, FileSystemEventArgs e)
+        {
+            string removedTheme = Path.GetFileNameWithoutExtension(e.FullPath);
+            Dispatcher.BeginInvoke(() =>
+            {
+                if (cboThemeSelect.Items.Contains(removedTheme))
+                {
+                    if (cboThemeSelect.SelectedItem is string selected && selected == removedTheme)
+                    {
+                        cboThemeSelect.SelectedIndex = 0;
+                    }
+                    cboThemeSelect.Items.Remove(removedTheme);
+                }
+            });
+        }
+
+        private void ThemesWatcher_Renamed(object sender, RenamedEventArgs e)
+        {
+            string removedTheme = Path.GetFileNameWithoutExtension(e.OldFullPath);
+            string newTheme = Path.GetFileNameWithoutExtension(e.FullPath);
+            Dispatcher.BeginInvoke(() =>
+            {
+                if (cboThemeSelect.Items.Contains(removedTheme))
+                {
+                    if (cboThemeSelect.SelectedItem is string selected && selected == removedTheme)
+                    {
+                        cboThemeSelect.SelectedIndex = 0;
+                    }
+                    cboThemeSelect.Items.Remove(removedTheme);
+                }
+                if (!cboThemeSelect.Items.Contains(newTheme))
+                {
+                    cboThemeSelect.Items.Add(newTheme);
+                }
+            });
         }
 
         private void LoadVersion()
@@ -253,6 +321,13 @@ namespace RetroBar
         private void PropertiesWindow_OnClosing(object sender, CancelEventArgs e)
         {
             _instance = null;
+            if (_themesWatcher != null)
+            {
+                _themesWatcher.Created -= ThemesWatcher_Created;
+                _themesWatcher.Deleted -= ThemesWatcher_Deleted;
+                _themesWatcher.Renamed -= ThemesWatcher_Renamed;
+            }
+            Settings.Instance.PropertyChanged -= Settings_PropertyChanged;
         }
 
         private void PropertiesWindow_OnLoaded(object sender, RoutedEventArgs e)
@@ -356,6 +431,23 @@ namespace RetroBar
             }
         }
 
+        private void CboWinNumHotkeysAction_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
+        {
+            if (this != _instance)
+            {
+                // Don't pop a message box if we're closed but haven't been GC'd yet
+                return;
+            }
+            if (cboWinNumHotkeysAction.SelectedItem == null)
+            {
+                cboWinNumHotkeysAction.SelectedValue = cboWinNumHotkeysAction.Items[(int)Settings.Instance.WinNumHotkeysAction];
+            }
+            else if (e.RemovedItems.Count > 0 && e.RemovedItems[0] == cboWinNumHotkeysAction.Items[0])
+            {
+                System.Windows.MessageBox.Show((string)System.Windows.Application.Current.FindResource("hotkey_warning_text"), (string)System.Windows.Application.Current.FindResource("hotkey_warning_title"), MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+        }
+
         private void CustomizeNotifications_OnClick(object sender, RoutedEventArgs e)
         {
             OpenCustomizeNotifications();
@@ -370,6 +462,13 @@ namespace RetroBar
         {
             ShellHelper.ExecuteProcess(e.Uri.AbsoluteUri);
             e.Handled = true;
+        }
+
+        private void OpenCustomThemesFolder_OnClick(object sender, RoutedEventArgs e)
+        {
+            string path = _dictionaryManager.GetThemeInstallDir();
+            Directory.CreateDirectory(path);
+            ShellHelper.StartProcess(path);
         }
     }
 }

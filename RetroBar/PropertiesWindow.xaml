@@ -370,6 +370,16 @@
                         </CheckBox>
                         <DockPanel>
                             <Label VerticalAlignment="Center"
+                                   Target="{Binding ElementName=cboWinNumHotkeysAction}">
+                                <AccessText Text="{DynamicResource win_num_hotkeys_action}" />
+                            </Label>
+                            <ComboBox x:Name="cboWinNumHotkeysAction"
+                                      ItemsSource="{DynamicResource win_num_hotkeys_action_values}"
+                                      SelectedIndex="{Binding Source={x:Static Settings:Settings.Instance}, Path=WinNumHotkeysAction, UpdateSourceTrigger=PropertyChanged, Converter={StaticResource enumConverter}}"
+                                      SelectionChanged="CboWinNumHotkeysAction_SelectionChanged" />
+                        </DockPanel>
+                        <DockPanel>
+                            <Label VerticalAlignment="Center"
                                    Target="{Binding ElementName=cboMiddleMouseAction}">
                                 <AccessText Text="{DynamicResource middle_mouse_task_action}" />
                             </Label>
@@ -452,6 +462,14 @@
                             </TextBlock>
                         </StackPanel>
                     </GroupBox>
+                    <TextBlock Margin="0,10,0,0"
+                               TextAlignment="Right">
+                        <Hyperlink Click="OpenCustomThemesFolder_OnClick">
+                            <Hyperlink.Inlines>
+                                <Run Text="{DynamicResource open_custom_themes_folder}" />
+                            </Hyperlink.Inlines>
+                        </Hyperlink>
+                    </TextBlock>
                     <DockPanel Margin="0,10,0,0">
                         <TextBlock x:Name="txtVersion"
                                    DockPanel.Dock="Left"
